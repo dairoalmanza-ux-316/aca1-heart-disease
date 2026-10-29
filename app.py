@@ -54,17 +54,11 @@ input_df = pd.DataFrame([{
 if st.button("Realizar Predicción"):
     try:
         prediction = model.predict(input_df)
-        if prediction[0] == 1:
-            st.error("⚠️ El modelo indica un alto riesgo de enfermedad cardíaca.")
-        else:
-            st.success("✅ El modelo indica un bajo riesgo de enfermedad cardíaca.")
-    except Exception as e:
-        # Fallback si el modelo fue entrenado con un arreglo NumPy sin nombres de columnas
-        try:
-            prediction = model.predict(input_df.values)
-            if prediction[0] == 1:
-                st.error("⚠️ El modelo indica un alto riesgo de enfermedad cardíaca.")
-            else:
-                st.success("✅ El modelo indica un bajo riesgo de enfermedad cardíaca.")
-        except Exception as err:
-            st.error(f"Error en la predicción: {err}")
+    except Exception:
+        prediction = model.predict(input_df.values)
+
+    # Lógica corregida según la etiqueta real de UCI:
+    if prediction[0] == 0:
+        st.error("⚠️ El modelo indica un alto riesgo de enfermedad cardíaca.")
+    else:
+        st.success("✅ El modelo indica un bajo riesgo de enfermedad cardíaca.")
