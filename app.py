@@ -1,1 +1,38 @@
-import streamlit as st import pandas as pd import numpy as np import joblib # Configuración visual de la página st.set\_page\_config(page\_title="Diagnóstico de Riesgo Cardíaco", page\_icon="🩺", layout="centered") st.title("🩺 Predicción de Riesgo Cardíaco") st.write("Ingrese los datos clínicos del paciente en la barra lateral para evaluar el riesgo.") # 1\. Cargar el modelo preentrenado model = joblib.load('modelo\_heart\_disease.pkl') # 2\. Entradas clínicas en la barra lateral st.sidebar.header("Datos Clínicos del Paciente") edad = st.sidebar.number\_input("Edad", min\_value=1, max\_value=120, value=50) presion = st.sidebar.number\_input("Presión Arterial en Reposo (trestbps)", min\_value=80, max\_value=200, value=120) colesterol = st.sidebar.number\_input("Colesterol Sérico (chol) [mg/dl]", min\_value=100, max\_value=600, value=200) freq\_max = st.sidebar.number\_input("Frecuencia Cardíaca Máxima (thalach)", min\_value=60, max\_value=220, value=150) oldpeak = st.sidebar.number\_input("Depresión del segmento ST (oldpeak)", min\_value=0.0, max\_value=10.0, value=1.0) # 3\. Botón de predicción if st.button("Ejecutar Evaluación Clínica"): datos\_paciente = pd.DataFrame([{ 'age': edad, 'trestbps': presion, 'chol': colesterol, 'thalach': freq\_max, 'oldpeak': oldpeak }]) prediccion = model.predict(datos\_paciente) probabilidad = model.predict\_proba(datos\_paciente)[0][1] \* 100 if prediccion[0] == 1: st.error(f"⚠️ \*\*Riesgo Alto:\*\* El modelo detecta indicios de riesgo cardíaco ({probabilidad:.1f}% de probabilidad).") else: st.success(f"✅ \*\*Riesgo Bajo:\*\* El paciente no presenta indicios significativos de riesgo ({100 - probabilidad:.1f}% de seguridad).")
+import pandas as pd
+import streamlit as st
+
+# (Asegúrate de incluir tus imports y la carga de tu modelo previamente)
+
+# 1. Inputs de la barra lateral (o formulario)
+oldpeak = st.sidebar.number_input(
+    "Depresión del segmento ST (oldpeak)",
+    min_value=0.0,
+    max_value=10.0,
+    value=1.0,
+)
+
+# 2. Botón de predicción y lógica
+if st.button("Ejecutar Evaluación Clínica"):
+    datos_paciente = pd.DataFrame(
+        [
+            {
+                "age": edad,
+                "trestbps": presion,
+                "chol": colesterol,
+                "thalach": freq_max,
+                "oldpeak": oldpeak,
+            }
+        ]
+    )
+
+    prediccion = model.predict(datos_paciente)
+    probabilidad = model.predict_proba(datos_paciente)[0][1] * 100
+
+    if prediccion[0] == 1:
+        st.error(
+            f"⚠️ **Riesgo Alto:** El modelo detecta indicios de riesgo cardíaco ({probabilidad:.1f}% de probabilidad)."
+        )
+    else:
+        st.success(
+            f"✅ **Riesgo Bajo:** El paciente no presenta indicios significativos de riesgo ({100 - probabilidad:.1f}% de seguridad)."
+        )
