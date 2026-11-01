@@ -1,5 +1,3 @@
-
-
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,6 +26,15 @@ def load_model():
 
 try:
     model = load_model()
+    with st.expander("ℹ️ Información del Modelo en Ejecución", expanded=False):
+        st.write(f"**Algoritmo Activo:** `{type(model).__name__}`")
+        if hasattr(model, "n_estimators"):
+            st.write(
+                f"**Número de Árboles (n_estimators):** `{model.n_estimators}`"
+            )
+        if hasattr(model, "max_depth"):
+            st.write(f"**Profundidad Máxima (max_depth):** `{model.max_depth}`")
+        st.write("**Estado:** Modelo cargado y operativo ✅")
 except Exception as e:
     st.error(f"Error al cargar el archivo 'modelo_heart_disease.pkl': {e}")
     st.stop()
@@ -37,6 +44,9 @@ tab_pred, tab_graficas = st.tabs(
     ["📋 Realizar Predicción", "📊 Gráficas del Colab (EDA y Evaluación)"]
 )
 
+# ---------------------------------------------------------
+# PESTAÑA 1: FORMULARIO Y PREDICCIÓN
+# ---------------------------------------------------------
 with tab_pred:
     st.subheader("Ingrese los datos del paciente:")
 
@@ -53,8 +63,6 @@ with tab_pred:
                 "Femenino (0)" if x == 0 else "Masculino (1)"
             ),
         )
-
-        # MAPEO CORRECTO DE CP (0 a 3 según el entrenamiento en Colab)
         cp = st.selectbox(
             "Tipo de dolor en el pecho (cp)",
             options=[0, 1, 2, 3],
@@ -65,7 +73,6 @@ with tab_pred:
                 3: "3: Asintomático",
             }[x],
         )
-
         trestbps = st.number_input(
             "Presión arterial en reposo mm Hg (trestbps)", value=112
         )
@@ -89,16 +96,12 @@ with tab_pred:
             value=0.0,
             step=0.1,
         )
-
-        # MAPEO CORRECTO DE SLOPE (0, 1, 2 según sklearn/Cleveland)
         slope = st.selectbox(
             "Pendiente del segmento ST (slope)", options=[0, 1, 2]
         )
         ca = st.selectbox(
             "Número de vasos principales coloreados (ca)", options=[0, 1, 2, 3]
         )
-
-        # MAPEO CORRECTO DE THAL (3, 6, 7 del dataset original UCI)
         thal = st.selectbox(
             "Talasemia - Thal (thal)",
             options=[3.0, 6.0, 7.0],
@@ -109,7 +112,6 @@ with tab_pred:
             }[x],
         )
 
-    # DataFrame con los datos en el orden exacto de las columnas de entrenamiento
     input_df = pd.DataFrame([
         {
             "age": age,
@@ -130,8 +132,6 @@ with tab_pred:
 
     if st.button("Realizar Predicción"):
         scaled_df = input_df.copy()
-
-        # Estandarización idéntica al StandardScaler de Colab
         means = {
             "age": 54.44,
             "trestbps": 131.69,
@@ -161,7 +161,60 @@ with tab_pred:
             st.success(
                 "✅ El modelo indica un **BAJO RIESGO** de enfermedad cardíaca."
             )
-        if prediction[0] == 1:
-            st.error("⚠️ El modelo indica un **ALTO RIESGO** de enfermedad cardíaca.")
-        else:
-            st.success("✅ El modelo indica un **BAJO RIESGO** de enfermedad cardíaca.")
+
+# ---------------------------------------------------------
+# PESTAÑA 2: VISUALIZACIONES DEL EDA Y EVALUACIÓN DEL MODELO
+# ---------------------------------------------------------
+with tab_graficas:
+    st.subheader("📊 Visualizaciones del Cuaderno de Google Colab")
+
+    col_g1, col_g2 = st.columns(2)
+
+    with col_g1:
+        st.markdown("### 1. Distribución de la Variable Objetivo (`target`)")
+        fig1, ax1 = plt.subplots(figsize=(5, 3.5))
+        sns.barplot(
+            x=["Sano (0)", "Riesgo (1)"],
+            y=[165, 138],
+            palette="Set2",
+            ax=ax1,
+        )
+        ax1.set_title("Distribución de Pacientes (0: Sano | 1: Riesgo)")
+        ax1.set_ylabel("Cantidad de Pacientes")
+        ax1.grid(axis="y", linestyle="--", alpha=0.7)
+        st.pyplot(fig1)
+
+    with col_g2:
+        st.markdown("### 2. Matriz de Confusión (Random Forest)")
+        fig2, ax2 = plt.subplots(figsize=(5, 3.5))
+        cm_data = np.array([[28, 5], [4, 24]])
+        sns.heatmap(
+            cm_data,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=["Sano", "Riesgo"],
+            yticklabels=["Sano", "Riesgo"],
+            ax=ax2,
+        )
+        ax2.set_title("Matriz de Confusión - Random Forest")
+        ax2.set_xlabel("Predicción del Modelo")
+        ax2.set_ylabel("Diagnóstico Real")
+        st.pyplot(fig2)
+
+    st.divider()
+
+    st.markdown("### 3. Importancia de Características (Feature Importance)")
+    if hasattr(model, "feature_importances_"):
+        fig3, ax3 = plt.subplots(figsize=(10, 4))
+        importances = model.feature_importances_
+        features = input_df.columns
+
+        df_imp = pd.DataFrame(
+            {"Variable": features, "Importancia": importances}
+        ).sort_values(by="Importancia", ascending=False)
+        sns.barplot(
+            data=df_imp, x="Importancia", y="Variable", palette="viridis", ax=ax3
+        )
+        ax3.set_title("Influencia de cada variable clínica en Random Forest")
+        st.pyplot(fig3)
