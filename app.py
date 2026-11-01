@@ -1,3 +1,5 @@
+%%writefile app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -21,8 +23,7 @@ def load_model():
 
 try:
     model = load_model()
-    
-    # Mostrar el modelo que está funcionando
+
     with st.expander("ℹ️ Información del Modelo en Ejecución", expanded=False):
         st.write(f"**Algoritmo Activo:** `{type(model).__name__}`")
         if hasattr(model, "n_estimators"):
@@ -39,27 +40,31 @@ tab_pred, tab_graficas = st.tabs(["📋 Realizar Predicción", "📊 Gráficas d
 
 with tab_pred:
     st.subheader("Ingrese los datos del paciente:")
-    
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
-        age = st.number_input("Edad (age)", min_value=1, max_value=120, value=50)
+        age = st.number_input("Edad (age)", min_value=1, max_value=120, value=29)
         sex = st.selectbox("Sexo (sex)", options=[0, 1], format_func=lambda x: "Femenino (0)" if x == 0 else "Masculino (1)")
-        cp = st.selectbox("Tipo de dolor en el pecho (cp)", options=[0, 1, 2, 3])
-        trestbps = st.number_input("Presión arterial en reposo mm Hg (trestbps)", value=120)
-        chol = st.number_input("Colesterol sérico mg/dl (chol)", value=200)
+        # En el dataset de Cleveland los tipos de dolor (cp) van de 1 a 4
+        cp = st.selectbox("Tipo de dolor en el pecho (cp)", options=[1, 2, 3, 4], 
+                          format_func=lambda x: {1: "1: Angina Típica", 2: "2: Angina Atípica", 3: "3: Dolor No Anginoso", 4: "4: Asintomático"}[x])
+        trestbps = st.number_input("Presión arterial en reposo mm Hg (trestbps)", value=112)
+        chol = st.number_input("Colesterol sérico mg/dl (chol)", value=180)
         fbs = st.selectbox("Azúcar en sangre en ayunas > 120 mg/dl (fbs)", options=[0, 1])
         restecg = st.selectbox("Resultados electrocardiógrafo en reposo (restecg)", options=[0, 1, 2])
 
     with col2:
-        thalach = st.number_input("Frecuencia cardíaca máxima alcanzada (thalach)", value=150)
+        thalach = st.number_input("Frecuencia cardíaca máxima alcanzada (thalach)", value=180)
         exang = st.selectbox("Angina inducida por ejercicio (exang)", options=[0, 1])
-        oldpeak = st.number_input("Depresión del ST inducida por ejercicio (oldpeak)", value=1.0, step=0.1)
-        slope = st.selectbox("Pendiente del segmento ST (slope)", options=[0, 1, 2])
+        oldpeak = st.number_input("Depresión del ST inducida por ejercicio (oldpeak)", value=0.0, step=0.1)
+        slope = st.selectbox("Pendiente del segmento ST (slope)", options=[1, 2, 3])
         ca = st.selectbox("Número de vasos principales coloreados (ca)", options=[0, 1, 2, 3])
-        thal = st.selectbox("Talasemia - Thal (thal)", options=[1, 2, 3], format_func=lambda x: {1: "Normal (1)", 2: "Defecto Fijo (2)", 3: "Defecto Reversible (3)"}[x])
+        # CORRECCIÓN DE THAL: Los valores numéricos reales en el dataset de entrenamiento son 3.0, 6.0 y 7.0
+        thal = st.selectbox("Talasemia - Thal (thal)", options=[3.0, 6.0, 7.0], 
+                            format_func=lambda x: {3.0: "Normal (3)", 6.0: "Defecto Fijo (6)", 7.0: "Defecto Reversible (7)"}[x])
 
-    # Construcción del DataFrame original
+    # Construcción del DataFrame original con el mismo orden exacto de columnas que en el entrenamiento
     input_df = pd.DataFrame([{
         'age': age, 'sex': sex, 'cp': cp, 'trestbps': trestbps, 'chol': chol,
         'fbs': fbs, 'restecg': restecg, 'thalach': thalach, 'exang': exang,
@@ -67,11 +72,12 @@ with tab_pred:
     }])
 
     if st.button("Realizar Predicción"):
-        # Preprocesamiento: Aplicar escalado aproximado a variables continuas según entrenamiento del Colab
         scaled_df = input_df.copy()
-        means = {'age': 54.37, 'trestbps': 131.62, 'chol': 246.26, 'thalach': 149.65, 'oldpeak': 1.04}
-        stds = {'age': 9.08, 'trestbps': 17.54, 'chol': 51.83, 'thalach': 22.90, 'oldpeak': 1.16}
         
+        # Medias y desviaciones según el StandardScaler del Colab
+        means = {'age': 54.44, 'trestbps': 131.69, 'chol': 246.69, 'thalach': 149.61, 'oldpeak': 1.04}
+        stds = {'age': 9.04, 'trestbps': 17.60, 'chol': 51.78, 'thalach': 22.88, 'oldpeak': 1.16}
+
         for col in ['age', 'trestbps', 'chol', 'thalach', 'oldpeak']:
             scaled_df[col] = (scaled_df[col] - means[col]) / stds[col]
 
@@ -80,46 +86,7 @@ with tab_pred:
         except Exception:
             prediction = model.predict(scaled_df.values)
 
-        # Lógica acorde a tu Colab (1: Riesgo / Enfermo, 0: Sano / Bajo Riesgo)
         if prediction[0] == 1:
             st.error("⚠️ El modelo indica un **ALTO RIESGO** de enfermedad cardíaca.")
         else:
             st.success("✅ El modelo indica un **BAJO RIESGO** de enfermedad cardíaca.")
-
-with tab_graficas:
-    st.subheader("📊 Visualizaciones del Cuaderno de Google Colab")
-    
-    col_g1, col_g2 = st.columns(2)
-
-    with col_g1:
-        st.markdown("### 1. Distribución de la Variable Objetivo (`target`)")
-        fig1, ax1 = plt.subplots(figsize=(5, 3.5))
-        sns.barplot(x=['Sano (0)', 'Riesgo (1)'], y=[165, 138], palette='Set2', ax=ax1)
-        ax1.set_title('Distribución de Pacientes (0: Sano | 1: Riesgo)')
-        ax1.set_ylabel('Cantidad de Pacientes')
-        ax1.grid(axis='y', linestyle='--', alpha=0.7)
-        st.pyplot(fig1)
-
-    with col_g2:
-        st.markdown("### 2. Matriz de Confusión (Random Forest)")
-        fig2, ax2 = plt.subplots(figsize=(5, 3.5))
-        cm_data = np.array([[28, 5], [4, 24]])
-        sns.heatmap(cm_data, annot=True, fmt='d', cmap='Blues', 
-                    xticklabels=['Sano', 'Riesgo'], yticklabels=['Sano', 'Riesgo'], ax=ax2)
-        ax2.set_title('Matriz de Confusión - Random Forest')
-        ax2.set_xlabel('Predicción del Modelo')
-        ax2.set_ylabel('Diagnóstico Real')
-        st.pyplot(fig2)
-
-    st.divider()
-    
-    st.markdown("### 3. Importancia de Características (Feature Importance)")
-    if hasattr(model, "feature_importances_"):
-        fig3, ax3 = plt.subplots(figsize=(10, 4))
-        importances = model.feature_importances_
-        features = input_df.columns
-        
-        df_imp = pd.DataFrame({'Variable': features, 'Importancia': importances}).sort_values(by='Importancia', ascending=False)
-        sns.barplot(data=df_imp, x='Importancia', y='Variable', palette='viridis', ax=ax3)
-        ax3.set_title('Influencia de cada variable clínica en Random Forest')
-        st.pyplot(fig3)
